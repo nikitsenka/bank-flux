@@ -7,5 +7,5 @@ RUN git clone https://github.com/nikitsenka/bank-flux.git
 WORKDIR bank-flux
 RUN ./gradlew build
 
-CMD java -jar target/bank-flux-0.0.1-SNAPSHOT.jar
+CMD java -jar build/libs/bank-flux-0.0.1-SNAPSHOT.jar
 
