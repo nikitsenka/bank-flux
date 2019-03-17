@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Resources:
-    EC2Instance:
+    BankEC2Instance:
         Type: AWS::EC2::Instance
         Properties:
             InstanceType: 't2.micro'
@@ -19,6 +19,18 @@ Resources:
                     sudo service docker start
                     sudo git clone https://github.com/nikitsenka/bank-flux.git
                     sudo docker build --no-cache -t bank-flux bank-flux/docker/.
+                    sudo docker run --name bank-flux -p 80:8080 -e POSTGRES_HOST=52.29.19.43 -d bank-flux
+    PostgresEC2Instance:
+        Description: Postgres database based on prepared AMI with DB schema.
+        Type: AWS::EC2::Instance
+        Properties:
+            InstanceType: 'd2.xlarge'
+            SecurityGroups: [!Ref 'InstanceSecurityGroup']
+            KeyName: 'temp'
+            ImageId: 'ami-0bc8991d274ef5829'
+            UserData:
+                Fn::Base64: !Sub |
+                    sudo docker start 0db04fa1d6
     InstanceSecurityGroup:
         Type: AWS::EC2::SecurityGroup
         Properties:
@@ -32,22 +44,31 @@ Resources:
               FromPort: 80
               ToPort: 80
               CidrIp: '0.0.0.0/0'
-    IPAssoc:
+            - IpProtocol: tcp
+              FromPort: 5432
+              ToPort: 5432
+              CidrIp: '0.0.0.0/0'
+    BankIPAssoc:
         Type: AWS::EC2::EIPAssociation
         Properties:
-            InstanceId: !Ref 'EC2Instance'
+            InstanceId: !Ref 'BankEC2Instance'
             EIP: '18.184.49.117'
+    PostgresIPAssoc:
+        Type: AWS::EC2::EIPAssociation
+        Properties:
+            InstanceId: !Ref 'PostgresEC2Instance'
+            EIP: '52.29.19.43'
 
 Outputs:
     InstanceId:
         Description: InstanceId of the newly created EC2 instance
-        Value: !Ref 'EC2Instance'
+        Value: !Ref 'BankEC2Instance'
     AZ:
         Description: Availability Zone of the newly created EC2 instance
-        Value: !GetAtt [EC2Instance, AvailabilityZone]
+        Value: !GetAtt [BankEC2Instance, AvailabilityZone]
     PublicDNS:
         Description: Public DNSName of the newly created EC2 instance
-        Value: !GetAtt [EC2Instance, PublicDnsName]
+        Value: !GetAtt [BankEC2Instance, PublicDnsName]
     PublicIP:
         Description: Public IP address of the newly created EC2 instance
-        Value: !GetAtt [EC2Instance, PublicIp]
+        Value: !GetAtt [BankEC2Instance, PublicIp]
