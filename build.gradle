@@ -3,6 +3,12 @@ plugins {
 	id 'java'
 }
 
+repositories {
+	maven { url 'https://repo.spring.io/milestone' }
+	maven { url 'https://repo.spring.io/snapshot' }
+}
+
+
 apply plugin: 'io.spring.dependency-management'
 
 group = 'com.nikitsenka'
@@ -15,6 +21,9 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'io.r2dbc:r2dbc-spi:1.0.0.M7'
+	implementation 'io.r2dbc:r2dbc-postgresql:1.0.0.M7'
+	implementation 'io.r2dbc:r2dbc-client:1.0.0.M7'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'

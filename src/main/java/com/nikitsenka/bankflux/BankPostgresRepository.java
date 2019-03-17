@@ -3,14 +3,14 @@ package com.nikitsenka.bankflux;
 import com.nikitsenka.bankflux.model.Balance;
 import com.nikitsenka.bankflux.model.Client;
 import com.nikitsenka.bankflux.model.Transaction;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Properties;
+import io.r2dbc.client.R2dbc;
+import io.r2dbc.postgresql.PostgresqlConnectionConfiguration;
+import io.r2dbc.postgresql.PostgresqlConnectionFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
+
+import javax.annotation.PostConstruct;
 
 @Repository
 public class BankPostgresRepository {
@@ -27,101 +27,68 @@ public class BankPostgresRepository {
     @Value("${postgres.db.name:postgres}")
     private String name;
 
-    public Client createClient(Client client) {
-        try (Connection con = getConnection();
-            PreparedStatement ps = insertClientStatement(con, client);
-            ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                int id = rs.getInt(1);
-                client.setId(id);
-                System.out.println("Created client with id " + id);
-            } else {
-                throw new RuntimeException("No results returned from query executions");
-            }
+    private R2dbc r2dbc;
 
-        } catch (SQLException e) {
-            System.out.println(e);
-        }
-        return client;
+    @PostConstruct
+    public void init() {
+        r2dbc = getR2dbc();
     }
 
-    public Transaction createTransaction(Transaction transaction) {
-        try (Connection con = getConnection();
-            PreparedStatement ps = insertTransactionStatement(con, transaction);
-            ResultSet rs = ps.executeQuery()) {
 
-            if (rs.next()) {
-                int id = rs.getInt(1);
-                transaction.setId(id);
-                System.out.println("Created transaction with id " + id);
-            } else {
-                throw new RuntimeException("No results returned from query executions");
-            }
-
-        } catch (SQLException e) {
-            System.out.println(e);
-        }
-        return transaction;
+    /**
+     * Creates new client.
+     *
+     * @param client
+     * @return client id
+     */
+    public Flux<Integer> createClient(Client client) {
+        return r2dbc.inTransaction(handle ->
+                handle.execute("INSERT INTO client(name, email, phone) VALUES (?, ?, ?)",
+                        client.getName(), client.getEmail(), client.getPhone()))
+                .thenMany(r2dbc.inTransaction(handle ->
+                        handle.select("SELECT id FROM client")
+                                .mapResult(result -> result.map((row, rowMetadata) -> row.get("id", Integer.class)))));
     }
 
+    /**
+     * Creates new transaction
+     *
+     * @param transaction
+     * @return transaction id
+     */
+    public Flux<Integer> createTransaction(Transaction transaction) {
+        return r2dbc.inTransaction(handle ->
+                handle.execute("INSERT INTO transaction(from_client_id, to_client_id, amount) VALUES (?, ?, ?)",
+                        transaction.getFromClientId(), transaction.getToClientId(), transaction.getAmount()))
+                .thenMany(r2dbc.inTransaction(handle ->
+                        handle.select("SELECT id FROM transaction")
+                                .mapResult(result -> result.map((row, rowMetadata) -> row.get("id", Integer.class)))));
+    }
+
+
+    /**
+     * Returns balance for the client
+     *
+     * @param clientId
+     * @return balance
+     */
     public Balance getBalance(Integer clientId) {
         Balance balance = new Balance();
-        try (Connection con = getConnection();
-            PreparedStatement ps = getBalanceStatement(con, clientId);
-            ResultSet rs = ps.executeQuery()) {
-
-            if (rs.next()) {
-                int amount = rs.getInt(1);
-                balance.setBalance(amount);
-                System.out.println("Get balance for client with id " + clientId);
-            } else {
-                throw new RuntimeException("No results returned from query executions");
-            }
-
-        } catch (SQLException e) {
-            System.out.println(e);
-        }
+        r2dbc.inTransaction(handle -> handle.select("SELECT debit - credit FROM (SELECT COALESCE(sum(amount), 0) AS debit FROM transaction WHERE to_client_id = ? ) a, ( SELECT COALESCE(sum(amount), 0) AS credit FROM transaction WHERE from_client_id = ? ) b;",
+                clientId).mapResult(result -> result.map((row, rowMetadata) -> row.get("debit", Integer.class))))
+                .subscribe(debit -> balance.setBalance(debit));
         return balance;
     }
 
-    private PreparedStatement getBalanceStatement(Connection con, Integer clientId) throws SQLException  {
-        PreparedStatement ps = con.prepareStatement("SELECT debit - credit FROM (SELECT COALESCE(sum(amount), 0) AS debit FROM transaction WHERE to_client_id = ? ) a, ( SELECT COALESCE(sum(amount), 0) AS credit FROM transaction WHERE from_client_id = ? ) b;");
-        ps.setInt(1, clientId);
-        ps.setInt(2, clientId);
-        return ps;
+    private R2dbc getR2dbc() {
+        PostgresqlConnectionConfiguration configuration = PostgresqlConnectionConfiguration.builder()
+                .host(host)
+                .database(name)
+                .username(user)
+                .password(password)
+                .build();
+        return new R2dbc(new PostgresqlConnectionFactory(configuration));
     }
 
-
-    private PreparedStatement insertClientStatement(Connection con, Client client) throws SQLException {
-        PreparedStatement ps = con.prepareStatement("INSERT INTO client(name, email, phone) VALUES (?, ?, ?) RETURNING id");
-        ps.setString(1, client.getName());
-        ps.setString(2, client.getEmail());
-        ps.setString(3, client.getPhone());
-        return ps;
-    }
-
-    private PreparedStatement insertTransactionStatement(Connection con, Transaction transaction) throws SQLException {
-        PreparedStatement ps = con.prepareStatement("INSERT INTO transaction(from_client_id, to_client_id, amount) VALUES (?, ?, ?) RETURNING id");
-        ps.setInt(1, transaction.getFromClientId());
-        ps.setInt(2, transaction.getToClientId());
-        ps.setInt(3, transaction.getAmount());
-        return ps;
-    }
-
-    private Connection getConnection() {
-        String url = "jdbc:postgresql://" + host + "/" + name;
-        Properties props = new Properties();
-        props.setProperty("user", user);
-        props.setProperty("password", password);
-        props.setProperty("ssl", "disable");
-        Connection conn = null;
-        try {
-            conn = DriverManager.getConnection(url, props);
-        } catch (SQLException e) {
-            System.out.println("Error open DB connection.");
-            System.out.println(e);
-        }
-        return conn;
-    }
 
 }
