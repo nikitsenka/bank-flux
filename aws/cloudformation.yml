@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Resources:
     BankEC2Instance:
+        Description: Ec2 instance with running latest bank-flux app.
         Type: AWS::EC2::Instance
         Properties:
             InstanceType: 't2.micro'
@@ -30,7 +31,16 @@ Resources:
             ImageId: 'ami-0bc8991d274ef5829'
             UserData:
                 Fn::Base64: !Sub |
+                    #!/bin/bash -xe
                     sudo docker start 0db04fa1d6
+    BankTestEC2Instance:
+        Description: Bank Test based on prepared AMI with jmeter 5 installed.
+        Type: AWS::EC2::Instance
+        Properties:
+            InstanceType: 't2.2xlarge'
+            SecurityGroups: [!Ref 'InstanceSecurityGroup']
+            KeyName: 'temp'
+            ImageId: 'ami-0fd22bf91066b1e23'
     InstanceSecurityGroup:
         Type: AWS::EC2::SecurityGroup
         Properties:
@@ -58,7 +68,11 @@ Resources:
         Properties:
             InstanceId: !Ref 'PostgresEC2Instance'
             EIP: '52.29.19.43'
-
+    BankTestIPAssoc:
+        Type: AWS::EC2::EIPAssociation
+        Properties:
+            InstanceId: !Ref 'BankTestEC2Instance'
+            EIP: '18.197.179.71'
 Outputs:
     InstanceId:
         Description: InstanceId of the newly created EC2 instance
