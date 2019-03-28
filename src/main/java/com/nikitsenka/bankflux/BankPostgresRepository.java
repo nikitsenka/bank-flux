@@ -4,13 +4,20 @@ import com.nikitsenka.bankflux.model.Balance;
 import com.nikitsenka.bankflux.model.Client;
 import com.nikitsenka.bankflux.model.Transaction;
 import io.r2dbc.client.R2dbc;
-import io.r2dbc.postgresql.PostgresqlConnectionConfiguration;
-import io.r2dbc.postgresql.PostgresqlConnectionFactory;
+import io.r2dbc.spi.ConnectionFactories;
+import io.r2dbc.spi.ConnectionFactory;
+import io.r2dbc.spi.ConnectionFactoryOptions;
+import io.r2dbc.spi.Result;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 
-import javax.annotation.PostConstruct;
+import static io.r2dbc.spi.ConnectionFactoryOptions.DATABASE;
+import static io.r2dbc.spi.ConnectionFactoryOptions.DRIVER;
+import static io.r2dbc.spi.ConnectionFactoryOptions.HOST;
+import static io.r2dbc.spi.ConnectionFactoryOptions.PASSWORD;
+import static io.r2dbc.spi.ConnectionFactoryOptions.PORT;
+import static io.r2dbc.spi.ConnectionFactoryOptions.USER;
 
 @Repository
 public class BankPostgresRepository {
@@ -27,14 +34,6 @@ public class BankPostgresRepository {
     @Value("${postgres.db.name:postgres}")
     private String name;
 
-    private R2dbc r2dbc;
-
-    @PostConstruct
-    public void init() {
-        r2dbc = getR2dbc();
-    }
-
-
     /**
      * Creates new client.
      *
@@ -42,12 +41,19 @@ public class BankPostgresRepository {
      * @return client id
      */
     public Flux<Integer> createClient(Client client) {
-        return r2dbc.inTransaction(handle ->
-                handle.execute("INSERT INTO client(name, email, phone) VALUES (?, ?, ?)",
-                        client.getName(), client.getEmail(), client.getPhone()))
-                .thenMany(r2dbc.inTransaction(handle ->
-                        handle.select("SELECT id FROM client")
-                                .mapResult(result -> result.map((row, rowMetadata) -> row.get("id", Integer.class)))));
+        R2dbc r2dbc = new R2dbc(getConnectionFactory());
+        r2dbc.inTransaction(handle ->
+                handle.createQuery("INSERT INTO client(name, email, phone) VALUES ($1, $2, $3)")
+                        .bind("$1", client.getName())
+                        .bind("$2", client.getEmail())
+                        .bind("$3", client.getPhone())
+                        .mapResult(Result::getRowsUpdated))
+                        .next();
+
+        return r2dbc
+                .inTransaction(handle -> handle.select(
+                        "SELECT id FROM client")
+                        .mapRow((row, rowMetadata) -> row.get("id", Integer.class)));
     }
 
     /**
@@ -57,12 +63,7 @@ public class BankPostgresRepository {
      * @return transaction id
      */
     public Flux<Integer> createTransaction(Transaction transaction) {
-        return r2dbc.inTransaction(handle ->
-                handle.execute("INSERT INTO transaction(from_client_id, to_client_id, amount) VALUES (?, ?, ?)",
-                        transaction.getFromClientId(), transaction.getToClientId(), transaction.getAmount()))
-                .thenMany(r2dbc.inTransaction(handle ->
-                        handle.select("SELECT id FROM transaction")
-                                .mapResult(result -> result.map((row, rowMetadata) -> row.get("id", Integer.class)))));
+        return null;
     }
 
 
@@ -73,21 +74,21 @@ public class BankPostgresRepository {
      * @return balance
      */
     public Balance getBalance(Integer clientId) {
-        Balance balance = new Balance();
-        r2dbc.inTransaction(handle -> handle.select("SELECT debit - credit FROM (SELECT COALESCE(sum(amount), 0) AS debit FROM transaction WHERE to_client_id = ? ) a, ( SELECT COALESCE(sum(amount), 0) AS credit FROM transaction WHERE from_client_id = ? ) b;",
-                clientId).mapResult(result -> result.map((row, rowMetadata) -> row.get("debit", Integer.class))))
-                .subscribe(debit -> balance.setBalance(debit));
-        return balance;
+        return null;
     }
 
-    private R2dbc getR2dbc() {
-        PostgresqlConnectionConfiguration configuration = PostgresqlConnectionConfiguration.builder()
-                .host(host)
-                .database(name)
-                .username(user)
-                .password(password)
-                .build();
-        return new R2dbc(new PostgresqlConnectionFactory(configuration));
+    private ConnectionFactory getConnectionFactory() {
+
+        ConnectionFactory connectionFactory = ConnectionFactories.get(ConnectionFactoryOptions.builder()
+                .option(DRIVER, "postgresql")
+                .option(HOST, host)
+                .option(USER, user)
+                .option(PASSWORD, password)
+                .option(PORT, 5432)
+                .option(DATABASE, name)
+                .build());
+
+        return connectionFactory;
     }
 
 

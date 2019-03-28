@@ -13,14 +13,9 @@ public class BankService {
     @Autowired
     private BankPostgresRepository repository;
 
-    public Client newClient(Integer balance) {
-        Client client = new Client();
-        repository.createClient(new Client(0, "", "", ""))
-                .subscribe(id -> {
-                    client.setId(id);
-                    repository.createTransaction(new Transaction(0, 0, id, balance));
-                });
-        return client;
+    public Flux<Integer> newClient(Integer balance) {
+
+        return repository.createClient(new Client(0, "", "", ""));
     }
 
     public Transaction newTransaction(Transaction transaction) {
