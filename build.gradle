@@ -20,11 +20,18 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-webflux'
-	implementation 'io.r2dbc:r2dbc-spi:1.0.0.M7'
-	implementation 'io.r2dbc:r2dbc-postgresql:1.0.0.M7'
-	implementation 'io.r2dbc:r2dbc-client:1.0.0.M7'
-	implementation 'org.postgresql:postgresql:42.2.5'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'io.projectreactor:reactor-test'
+	compile 'org.springframework.boot:spring-boot-starter-webflux'
+	compile 'io.r2dbc:r2dbc-spi:1.0.0.M7'
+	compile 'io.r2dbc:r2dbc-postgresql:1.0.0.M7'
+	compile 'io.r2dbc:r2dbc-client:1.0.0.M7'
+	compile 'org.postgresql:postgresql:42.2.5'
+	compile 'org.springframework:spring-jdbc:5.1.5.RELEASE'
+	compile 'org.springframework.data:spring-data-r2dbc:1.0.0.M1'
+	
+	testCompile 'com.zaxxer:HikariCP:2.2.5'
+	testCompile 'org.springframework.boot:spring-boot-starter-test'
+	testCompile 'io.projectreactor:reactor-test'
+	testCompile group: 'org.testcontainers', name: 'postgresql', version: '1.11.1'
+	testCompile "org.junit.jupiter:junit-jupiter-api:5.2.0"
+	testCompile "org.junit.jupiter:junit-jupiter-params:5.2.0"
 }

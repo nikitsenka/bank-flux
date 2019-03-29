@@ -1,6 +1,5 @@
 package com.nikitsenka.bankflux;
 
-import com.nikitsenka.bankflux.model.Balance;
 import com.nikitsenka.bankflux.model.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @RestController
 public class BankController {
@@ -24,17 +23,17 @@ public class BankController {
     }
 
     @PostMapping("/client/new/{balance}")
-    public Flux<Integer> newClient(@PathVariable Integer balance){
+    public Mono<Integer> newClient(@PathVariable Integer balance){
         return service.newClient(balance);
     }
 
     @PostMapping("/transaction")
-    public Transaction newTransaction(@RequestBody Transaction transaction){
+    public Mono<Integer> newTransaction(@RequestBody Transaction transaction){
         return service.newTransaction(transaction);
     }
 
     @GetMapping("/client/{id}/balance")
-    public Balance getBalance(@PathVariable Integer id){
+    public Mono<Long> getBalance(@PathVariable Integer id){
         return service.getBalance(id);
     }
 
