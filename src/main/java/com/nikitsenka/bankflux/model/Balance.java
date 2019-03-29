@@ -1,20 +1,20 @@
 package com.nikitsenka.bankflux.model;
 
 public class Balance {
-    private Integer balance;
+    private Long balance;
 
     public Balance() {
     }
 
-    public Balance(Integer balance) {
+    public Balance(Long balance) {
         this.balance = balance;
     }
 
-    public Integer getBalance() {
+    public Long getBalance() {
         return balance;
     }
 
-    public void setBalance(Integer balance) {
+    public void setBalance(Long balance) {
         this.balance = balance;
     }
 }

@@ -1,5 +1,6 @@
 package com.nikitsenka.bankflux;
 
+import com.nikitsenka.bankflux.model.Balance;
 import com.nikitsenka.bankflux.model.Client;
 import com.nikitsenka.bankflux.model.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,16 +13,26 @@ public class BankService {
     @Autowired
     private BankPostgresRepository repository;
 
-    public Mono<Integer> newClient(Integer balance) {
-
-        return repository.createClient(new Client(0, "", "", ""));
+    public Mono<Client> newClient(Integer balance) {
+        Client client = new Client(0, "", "", "");
+        return repository.createClient(client)
+                .flatMap(clientId -> {
+                    client.setId(clientId);
+                    return repository.createTransaction(new Transaction(0, 0, clientId, balance));
+                })
+                .map(transactionId -> client);
     }
 
-    public Mono<Integer> newTransaction(Transaction transaction) { ;
-        return repository.createTransaction(transaction);
+    public Mono<Transaction> newTransaction(Transaction transaction) { ;
+        return repository.createTransaction(transaction)
+                .map(transId -> {
+                    transaction.setId(transId);
+                    return transaction;
+                });
     }
 
-    public Mono<Long> getBalance(Integer clientId) {
-        return repository.getBalance(clientId);
+    public Mono<Balance> getBalance(Integer clientId) {
+        return repository.getBalance(clientId)
+                .map(balance -> new Balance(balance));
     }
 }
